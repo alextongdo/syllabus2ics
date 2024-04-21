@@ -56,7 +56,7 @@ We will provide additional questions that you should answer based on syllabus gi
     #       start date: 2024-05-07
     #       location
     #       days of the week + times : “mon 10:00-10:50, wed 10:00-10:50, fri 10:00-10:50”
-
+    quarter_start =None
     days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
     day_map = {day: i for i, day in enumerate(days)}
     all_events = ["lectures", "office", "discussions", "midterm", "final"]
@@ -65,22 +65,6 @@ We will provide additional questions that you should answer based on syllabus gi
             if event == "office":
                 event = "office hours"
             print("CURR EVENT: " + event)
-            # get raw start day
-            raw_start_day = find_start_day(chat, event)
-            print("RAW START DATE: " + raw_start_day)
-            if "none" in raw_start_day:
-                print("no start day found skipping" + event)
-                continue
-            pattern = r"\d{4}-\d{2}-\d{2}"
-            match = re.search(pattern, raw_start_day)
-            if match:
-                raw_start_day = match.group()
-            else:
-                raise ValueError("Invalid raw start day")
-
-            print("POST START DATE: " + raw_start_day)
-            start_date = date.fromisoformat(raw_start_day)
-            print(start_date)
             # get location
             location = find_event_location(chat, event)
             if "none" in location:
@@ -91,14 +75,46 @@ We will provide additional questions that you should answer based on syllabus gi
             if "none" in raw_events:
                 print("none raw_events")
                 continue
+
             print("RAW EVENT INSTANCES: " + raw_events)
             raw_events = [d.strip() for d in raw_events.split(",") if len(d.strip()) > 0]
+
+            start_date=None
+            # get raw start day
+            if event in "lectures midterm final":
+                raw_start_day = find_start_day(chat, event)
+                print("RAW START DATE: " + raw_start_day)
+                if "none" in raw_start_day:
+                    print("no start day found skipping" + event)
+                    continue
+                else:
+                    pattern = r"\d{4}-\d{2}-\d{2}"
+                    match = re.search(pattern, raw_start_day)
+                    if match:
+                        raw_start_day = match.group()
+                    else:
+                        print("Invalid raw start day")
+                        continue
+                    print("POST START DATE: " + raw_start_day)
+                    start_date = date.fromisoformat(raw_start_day)
+                    print(start_date)
+
+
             prev_day = None
             curr_date = start_date
             init_events = []
             for ev in raw_events:
                 day = ev.split()[0]
                 curr_day = day_map[day]
+                if prev_day is None and event in "lectures":
+                    print("SETTING QUARTER START")
+                    quarter_start = curr_date + timedelta(days=-curr_day)
+                    print(quarter_start)
+                if prev_day is None and event in "office hours discussion":
+                    print("SETTING START DATE")
+                    start_date = quarter_start + timedelta(days=curr_day)
+                    curr_date = start_date
+                    print(curr_date)
                 diff = 0
                 if prev_day is not None:
                     diff = curr_day - prev_day
