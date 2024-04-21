@@ -5,33 +5,49 @@ from syllabus2ics.syllabus_parsing import parse_syllabus
 
 class State(rx.State):
 
+    show_progress: bool = False
+    message: str = "Upload a PDF of your syllabus."
+    
     async def handle_upload(self, files: list[rx.UploadFile]):
+        self.show_progress = True
+        self.message = "Loading..."
+        yield
         upload_data = await files[0].read()
         extracted_text = extract_text_from_pdf(upload_data)
         print(extracted_text)
         print("GOT A PDF")
-
         ics_string = parse_syllabus(extracted_text)
-        return rx.download(data=ics_string.encode(), filename="my.ics")
+        self.show_progress = False
+        self.message = "Upload a PDF of your syllabus."
+        yield rx.download(data=ics_string.encode(), filename="my.ics")
 
 def index() -> rx.Component:
     return rx.center(
         rx.vstack(
-            rx.heading("Syllabus to Calendar", size="9"),
+            rx.heading('\U0001F4DA Syllabus to Calendar \U0001F4C5', size="9"),
             rx.text(
                 "Automatically turn lectures/office hours in your syllabuys into calendar invites!"
             ),
-            rx.upload(
-                rx.text("Upload a PDF of your syllabus."),
-                id="upload",
-                multiple=False,
-                accept={
-                    "application/pdf": [".pdf"],
-                },
-                on_drop=State.handle_upload(rx.upload_files(upload_id="upload")),
-                border=f"2px dotted",
-                padding="3em",
-                font_size="0.7em",
+            rx.vstack(
+                rx.upload(
+                    rx.text(State.message, align="center"),
+                    id="upload",
+                    multiple=False,
+                    accept={
+                        "application/pdf": [".pdf"],
+                    },
+                    on_drop=State.handle_upload(rx.upload_files(upload_id="upload")),
+                    border=f"2px dotted",
+                    padding="3em",
+                    width="100%",
+                    font_size="0.7em",
+                ),
+                rx.cond(
+                    State.show_progress,
+                    rx.chakra.progress(is_indeterminate=True, width="100%"),
+                ),
+                width="50%",
+                spacing="4",
             ),
             # rx.html("<p>When does your class start?</p>"),
             # rx.html(
