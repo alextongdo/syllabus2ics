@@ -3,7 +3,7 @@ import os
 from ics import Calendar, Event
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-
+import re
 load_dotenv()
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -55,8 +55,15 @@ We will provide additional questions that you should answer based on syllabus gi
 def get_ics(class_name, class_hours, class_days, location):
 
     c = Calendar()
-    start_time = datetime.fromisoformat(class_hours.split(";")[0]+"-07:00")
-    end_time = datetime.fromisoformat(class_hours.split(";")[1]+"-07:00")
+
+    pattern = r'\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\b'
+
+    # Find all matches of the pattern in the input string
+    matches = re.findall(pattern, class_hours, re.MULTILINE)
+    start_time = datetime.fromisoformat(matches[0]+"-07:00")
+    end_time = datetime.fromisoformat(matches[1]+"-07:00")
+    # start_time = datetime.fromisoformat(class_hours.split(";")[0]+"-07:00")
+    # end_time = datetime.fromisoformat(class_hours.split(";")[1]+"-07:00")
 
     list_days = class_days.strip('][').split(', ')
     days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
