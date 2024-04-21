@@ -109,7 +109,7 @@ def find_code(chat):
     return code
 
 def find_lecture_time(chat):
-    times = chat.send_message("What are the class hours? Output the the start and end time (in military time) in the following format 'YYYY-MM-DDTHH:MM:SS;YYYY-MM-DDTHH:MM:SS' with 'T' being a separator between date and time. An example of the format is '2024-04-01T00:00:00;2024-04-01T02:00:00'", safety_settings=SAFE)
+    times = chat.send_message("What are the class hours? Output the the start and end time (in military time) in the following format 'YYYY-MM-DDTHH:MM:SS;YYYY-MM-DDTHH:MM:SS' with 'T' being a separator between date and time. An example of the format is '2024-04-01T00:00:00;2024-04-01T02:00:00;'", safety_settings=SAFE)
     return times.text
 
 def find_lecture_location(chat):
