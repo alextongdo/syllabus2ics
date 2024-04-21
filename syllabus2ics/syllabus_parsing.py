@@ -1,7 +1,7 @@
 import google.generativeai as genai
 import os
 from ics import Calendar, Event
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta,date
 from dotenv import load_dotenv
 import re
 load_dotenv()
@@ -39,72 +39,110 @@ We will provide additional questions that you should answer based on syllabus gi
 """
     )
 
-    code = find_code(chat)
-    times = find_lecture_time(chat)
-    days = find_lecture_days(chat)
-    location = find_lecture_location(chat)
+    course_code = find_code(chat)
+    possible_events = find_events(chat)
 
-    print(code)
-    print(times)
-    print(days)
-    print(location)
-
-    return get_ics(code, times, days, location)
-
-
-def get_ics(class_name, class_hours, class_days, location):
+    print(course_code)
+    print(possible_events)
 
     c = Calendar()
 
-    pattern = r'\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\b'
 
-    # Find all matches of the pattern in the input string
-    matches = re.findall(pattern, class_hours, re.MULTILINE)
-    start_time = datetime.fromisoformat(matches[0]+"-07:00")
-    end_time = datetime.fromisoformat(matches[1]+"-07:00")
-    # start_time = datetime.fromisoformat(class_hours.split(";")[0]+"-07:00")
-    # end_time = datetime.fromisoformat(class_hours.split(";")[1]+"-07:00")
+    # Define the regex pattern
 
-    list_days = class_days.strip('][').split(', ')
-    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    # 1. Course code
+    # 2. Possible events: lectures, office hours, discussions, midterm, final
+    # 3. For each that exists:
+    #       start date: 2024-05-07
+    #       location
+    #       days of the week + times : “mon 10:00-10:50, wed 10:00-10:50, fri 10:00-10:50”
+
+    days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
     day_map = {day: i for i, day in enumerate(days)}
+    all_events = ["lectures", "office", "discussions", "midterm", "final"]
+    for event in all_events:
+        if event in possible_events:
+            if event == "office":
+                event = "office hours"
+            print("CURR EVENT: " + event)
+            # get raw start day
+            raw_start_day = find_start_day(chat, event)
+            print("RAW START DATE: " + raw_start_day)
+            if "none" in raw_start_day:
+                print("no start day found skipping" + event)
+                continue
+            pattern = r"\d{4}-\d{2}-\d{2}"
+            match = re.search(pattern, raw_start_day)
+            if match:
+                raw_start_day = match.group()
+            else:
+                raise ValueError("Invalid raw start day")
 
-    int_days = []
-    for day in list_days:
-        int_days.append(day_map[day])
+            print("POST START DATE: " + raw_start_day)
+            start_date = date.fromisoformat(raw_start_day)
+            print(start_date)
+            # get location
+            location = find_event_location(chat, event)
+            if "none" in location:
+                location = ""
+            print("LOCATION: " + location)
+            # get days of the week
+            raw_events = find_event_times(chat, event)
+            if "none" in raw_events:
+                print("none raw_events")
+                continue
+            print("RAW EVENT INSTANCES: " + raw_events)
+            raw_events = [d.strip() for d in raw_events.split(",") if len(d.strip()) > 0]
+            prev_day = None
+            curr_date = start_date
+            init_events = []
+            for ev in raw_events:
+                day = ev.split()[0]
+                curr_day = day_map[day]
+                diff = 0
+                if prev_day is not None:
+                    diff = curr_day - prev_day
+                prev_day = curr_day
+                curr_date = curr_date + timedelta(days=diff)
+                raw_start_time = (ev.split(" ")[1]).split("-")[0] + ":00"
+                print("RAW_START_TIME: " + raw_start_time)
+                raw_end_time = (ev.split(" ")[1]).split("-")[1] + ":00"
+                print("RAW_END_TIME: " + raw_end_time)
+                start_time_iso = curr_date.isoformat() + "T" + raw_start_time + "-07:00"
+                end_time_iso = curr_date.isoformat() + "T" + raw_end_time + "-07:00"
+                print("ISO_START_TIME: " + start_time_iso)
+                print("ISO_END_TIME: " + end_time_iso)
+                start_time = datetime.fromisoformat(start_time_iso)
+                end_time = datetime.fromisoformat(end_time_iso)
+                init_events.append((start_time, end_time))
 
-    differences = []
-    for i in range(1, len(int_days)):
-        differences.append(int_days[i] - int_days[i-1])
+            rep = 10
+            if event in "midterm final":
+                rep = 1
+            for i in range(rep):
+                new_events = []
+                for curr_class in init_events:
+                    e = Event()
+                    e.name = course_code + " " + event
+                    e.description = location
+                    e.begin = curr_class[0]
+                    e.end = curr_class[1]
+                    c.events.add(e)
+                    new_class = (curr_class[0] + timedelta(days=7), curr_class[1] + timedelta(days=7))
+                    new_events.append(new_class)
+                init_events = new_events
 
-    init_classes = [(start_time, end_time)]
-    for diff in differences:
-        start_time = start_time + timedelta(days=diff)
-        end_time = end_time + timedelta(days=diff)
-        init_classes.append((start_time, end_time))
-
-
-    for i in range(10):
-        new_classes = []
-        for curr_class in init_classes:
-            e = Event()
-            e.name = class_name
-            e.description = location
-            e.begin = curr_class[0]
-            e.end = curr_class[1]
-            c.events.add(e)
-            new_class = (curr_class[0] + timedelta(days=7), curr_class[1] + timedelta(days=7))
-            new_classes.append(new_class)
-        init_classes = new_classes
-        
     ics_string = c.serialize()
-        
+
     print(ics_string)
 
     # with open('my.ics', 'w') as my_file:
     #     my_file.writelines(c.serialize_iter())
 
     return ics_string
+
+
+
 
 def find_code(chat):
     codes = {}
@@ -119,14 +157,21 @@ def find_code(chat):
     code = max(codes, key=codes.get)
     return code
 
-def find_lecture_time(chat):
-    times = chat.send_message("What are the class hours? Output the the start and end time (in military time) in the following format 'YYYY-MM-DDTHH:MM:SS;YYYY-MM-DDTHH:MM:SS' with 'T' being a separator between date and time. An example of the format is '2024-04-01T00:00:00;2024-04-01T02:00:00;'", safety_settings=SAFE)
+def find_events(chat):
+    response = chat.send_message(
+        "Out of the following possible events, identify which of these events are mentioned in the syllabus.\n`lectures, office hours, discussions, midterm, final`\nPlease respond only with a comma separated list with elements from the possible events.\nAn example response would be: lectures, office hours, final",
+        safety_settings=SAFE
+    )
+    return response.text
+
+def find_event_times(chat, event):
+    times = chat.send_message(f"Out of the following possible days of the week, identify which days and time interval on those days are the {event}?\n`mon, tue, wed, thu, fri, sat, sun`\nPlease only respond with a comma separated list with elements from the possible days followed by a 24 hour time interval (HH:MM-HH:MM). An example of the expected response is `mon 10:00-11:00, wed 12:00-13:00, fri 5:30-6:30`.", safety_settings=SAFE)
     return times.text
 
-def find_lecture_location(chat):
-    location = chat.send_message("Where are the class lectures held?", safety_settings=SAFE)
+def find_event_location(chat, event):
+    location = chat.send_message(f"What is the location of {event}? Please only respond with a single room code or `none` if no location is mentioned. An example of the expected response is `La Kretz Hall 110` or `none`.", safety_settings=SAFE)
     return location.text
 
-def find_lecture_days(chat):
-    days = chat.send_message("What days are the class lectures on? Valid responses include the 3 character day abbreviation, [Mon, Tue, Wed, Thu, Fri, Sat, Sun]. Respond with a list of the days found. An example of the desired format is '[Mon, Tue]'", safety_settings=SAFE)
-    return days.text
+def find_start_day(chat, event):
+    day = chat.send_message(f"What is the start date of {event}? Please only respond with the start date in ISO date format `YYYY-MM-DD` or `none` if no start date is mentioned. An example of the expected response is `2024-04-01` or `none`.", safety_settings=SAFE)
+    return day.text
