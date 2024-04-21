@@ -26,7 +26,7 @@ def index() -> rx.Component:
         rx.vstack(
             rx.heading('\U0001F4DA Syllabus to Calendar \U0001F4C5', size="9"),
             rx.text(
-                "Automatically turn lectures/office hours in your syllabuys into calendar invites!"
+                "Automatically turn lectures/office hours in your syllabus into calendar invites!"
             ),
             rx.vstack(
                 rx.upload(
