@@ -5,19 +5,14 @@ from syllabus2ics.syllabus_parsing import parse_syllabus
 
 class State(rx.State):
 
-    ics_string = ""
-
     async def handle_upload(self, files: list[rx.UploadFile]):
         upload_data = await files[0].read()
         extracted_text = extract_text_from_pdf(upload_data)
         print(extracted_text)
         print("GOT A PDF")
 
-        self.ics_string = parse_syllabus(extracted_text)
-        
-        print(self.ics_string)
-        # rx.download(data=ics_string, filename="my.ics")
-
+        ics_string = parse_syllabus(extracted_text)
+        return rx.download(data=ics_string.encode(), filename="my.ics")
 
 def index() -> rx.Component:
     return rx.center(
@@ -37,10 +32,6 @@ def index() -> rx.Component:
                 border=f"2px dotted",
                 padding="3em",
                 font_size="0.7em",
-            ),
-            rx.button(
-                "download",
-                on_click=rx.download(data=State.ics_string, filename="bruh.ics")
             ),
             # rx.html("<p>When does your class start?</p>"),
             # rx.html(
