@@ -11,7 +11,7 @@ def extract_text_from_pdf(file_bytes, markdown=False):
 
 if __name__ == '__main__':
     # You have to read the pdf bytes first
-    with open("input.pdf", "rb") as f:
+    with open("Syllabus.pdf", "rb") as f:
         bytes = f.read()
 
     # Then you can extract text
